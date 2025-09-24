@@ -7,10 +7,10 @@ class RichTextEditor extends StatefulWidget {
   final String? initialContent;
 
   const RichTextEditor({
-    Key? key,
+    super.key,
     this.onContentChanged,
     this.initialContent,
-  }) : super(key: key);
+  });
 
   @override
   State<RichTextEditor> createState() => RichTextEditorState();
@@ -19,6 +19,7 @@ class RichTextEditor extends StatefulWidget {
 class RichTextEditorState extends State<RichTextEditor> {
   InAppWebViewController? _webViewController;
   bool _isLoading = true;
+  String _errorMessage = '';
 
   @override
   Widget build(BuildContext context) {
@@ -34,15 +35,20 @@ class RichTextEditorState extends State<RichTextEditor> {
             mediaPlaybackRequiresUserGesture: false,
             clearCache: false,
             javaScriptEnabled: true,
-            // debuggingEnabled: false,
+            domStorageEnabled: true,
+            allowsLinkPreview: false,
+            iframeAllow: "camera; microphone",
+            iframeAllowFullscreen: true,
           ),
           onWebViewCreated: (controller) {
             _webViewController = controller;
+            debugPrint("WebView created");
 
             // Add JavaScript handlers
             controller.addJavaScriptHandler(
               handlerName: 'contentChanged',
               callback: (args) {
+                debugPrint("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, 50) : 'empty'}...");
                 if (args.isNotEmpty) {
                   widget.onContentChanged?.call(args[0].toString());
                 }
@@ -52,42 +58,81 @@ class RichTextEditorState extends State<RichTextEditor> {
             controller.addJavaScriptHandler(
               handlerName: 'editorReady',
               callback: (args) {
-                setState(() {
-                  _isLoading = false;
-                });
+                debugPrint("Editor ready callback received");
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                    _errorMessage = '';
+                  });
 
-                // Set initial content if provided
-                if (widget.initialContent != null) {
-                  setContent(widget.initialContent!);
+                  // Set initial content if provided
+                  if (widget.initialContent != null) {
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      setContent(widget.initialContent!);
+                    });
+                  }
                 }
               },
             );
           },
+          onLoadStart: (controller, url) {
+            debugPrint("Load started: $url");
+          },
           onLoadStop: (controller, url) async {
-            // WebView has finished loading
+            debugPrint("Load stopped: $url");
+            // Add a timeout fallback in case the editor doesn't initialize
+            Future.delayed(const Duration(seconds: 10), () {
+              if (mounted && _isLoading) {
+                debugPrint("Timeout reached, forcing editor ready");
+                setState(() {
+                  _isLoading = false;
+                  _errorMessage = 'Editor took longer than expected to load, but may still be functional.';
+                });
+              }
+            });
+          },
+          onLoadError: (controller, url, code, message) {
+            debugPrint("Load error: $message");
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                _errorMessage = 'Failed to load editor: $message';
+              });
+            }
           },
           onConsoleMessage: (controller, consoleMessage) {
-            debugPrint("Console: ${consoleMessage.message}");
+            debugPrint("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
           },
         ),
         if (_isLoading)
           Container(
             color: Colors.white,
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(
+                  const CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
                   ),
-                  SizedBox(height: 16),
-                  Text(
+                  const SizedBox(height: 16),
+                  const Text(
                     'Loading editor...',
                     style: TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: 14,
                     ),
                   ),
+                  if (_errorMessage.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(
+                        color: Color(0xFFDC2626),
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -114,8 +159,11 @@ class RichTextEditorState extends State<RichTextEditor> {
     if (_webViewController == null) return;
 
     try {
+      // Escape the content properly for JavaScript
+      final escapedContent = content.replaceAll('\\', '\\\\').replaceAll('`', '\\`').replaceAll('\$', '\\\$');
+
       await _webViewController!.evaluateJavascript(
-        source: "window.setContent(`$content`);",
+        source: "window.setContent(`$escapedContent`);",
       );
     } catch (e) {
       debugPrint("Error setting content: $e");
@@ -150,8 +198,11 @@ class RichTextEditorState extends State<RichTextEditor> {
     if (_webViewController == null) return;
 
     try {
+      // Escape the text properly for JavaScript
+      final escapedText = text.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n').replaceAll('\r', '\\r');
+
       await _webViewController!.evaluateJavascript(
-        source: "window.insertText('$text');",
+        source: "window.insertText('$escapedText');",
       );
     } catch (e) {
       debugPrint("Error inserting text: $e");

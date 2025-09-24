@@ -55,7 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
             color: Color(0xFF1E293B),
           ),
         ),
-        actions: [
+        /* actions: [
           IconButton(
             onPressed: _getContent,
             icon: const Icon(Icons.content_copy, color: Color(0xFF64748B)),
@@ -67,11 +67,11 @@ class _MyHomePageState extends State<MyHomePage> {
             tooltip: 'Clear Content',
           ),
           const SizedBox(width: 8),
-        ],
+        ], */
       ),
       body: Column(
         children: [
-          Container(
+          /* Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -116,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ],
             ),
-          ),
+          ), */
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
