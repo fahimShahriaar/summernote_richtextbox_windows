@@ -1,6 +1,11 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:path_provider/path_provider.dart';
+
+WebViewEnvironment? webViewEnvironment;
 
 class RichTextEditor extends StatefulWidget {
   final Function(String)? onContentChanged;
@@ -21,13 +26,41 @@ class RichTextEditorState extends State<RichTextEditor> {
   bool _isLoading = true;
   String _errorMessage = '';
 
+  void initializeWindowsWebViewEnvironment() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      final availableVersion = await WebViewEnvironment.getAvailableVersion();
+      assert(availableVersion != null, 'Failed to find an installed WebView2 Runtime or non-stable Microsoft Edge installation.');
+
+      final appDataDir = await getApplicationSupportDirectory();
+
+      webViewEnvironment = await WebViewEnvironment.create(
+        settings: WebViewEnvironmentSettings(userDataFolder: '${appDataDir.path}\\EBWebView'),
+      );
+
+      /* this.setState(() {
+        isLoading = false;
+      }); */
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    initializeWindowsWebViewEnvironment();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         InAppWebView(
           initialFile: "assets/summernote.html",
+          webViewEnvironment: Platform.isWindows ? webViewEnvironment : null,
           initialSettings: InAppWebViewSettings(
+            allowUniversalAccessFromFileURLs: true,
+            allowFileAccessFromFileURLs: true,
+            allowFileAccess: true,
             transparentBackground: true,
             disableContextMenu: false,
             supportZoom: false,
@@ -48,7 +81,7 @@ class RichTextEditorState extends State<RichTextEditor> {
             controller.addJavaScriptHandler(
               handlerName: 'contentChanged',
               callback: (args) {
-                debugPrint("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, 50) : 'empty'}...");
+                debugPrint("Content changed: $args");
                 if (args.isNotEmpty) {
                   widget.onContentChanged?.call(args[0].toString());
                 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'dart:developer';
+
 import 'rich_text_editor.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -21,7 +23,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Segoe UI',
       ),
-      home: const MyHomePage(title: 'Rich Text Editor'),
+      home: const MyHomePage(
+        title: 'Rich Text Editor',
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -55,68 +59,17 @@ class _MyHomePageState extends State<MyHomePage> {
             color: Color(0xFF1E293B),
           ),
         ),
-        /* actions: [
-          IconButton(
-            onPressed: _getContent,
-            icon: const Icon(Icons.content_copy, color: Color(0xFF64748B)),
-            tooltip: 'Get Content',
-          ),
-          IconButton(
-            onPressed: _clearContent,
-            icon: const Icon(Icons.clear, color: Color(0xFF64748B)),
-            tooltip: 'Clear Content',
-          ),
-          const SizedBox(width: 8),
-        ], */
       ),
       body: Column(
         children: [
-          /* Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+          Text(
+            _content,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF64748B),
             ),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _buildToolbarButton(
-                  icon: Icons.format_bold,
-                  label: 'Bold',
-                  onPressed: () => _editorKey.currentState?.execCommand('bold'),
-                ),
-                _buildToolbarButton(
-                  icon: Icons.format_italic,
-                  label: 'Italic',
-                  onPressed: () => _editorKey.currentState?.execCommand('italic'),
-                ),
-                _buildToolbarButton(
-                  icon: Icons.format_underlined,
-                  label: 'Underline',
-                  onPressed: () => _editorKey.currentState?.execCommand('underline'),
-                ),
-                const SizedBox(width: 16),
-                _buildToolbarButton(
-                  icon: Icons.format_list_bulleted,
-                  label: 'Bullet List',
-                  onPressed: () => _editorKey.currentState?.execCommand('insertUnorderedList'),
-                ),
-                _buildToolbarButton(
-                  icon: Icons.format_list_numbered,
-                  label: 'Number List',
-                  onPressed: () => _editorKey.currentState?.execCommand('insertOrderedList'),
-                ),
-              ],
-            ),
-          ), */
+            textAlign: TextAlign.center,
+          ),
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
@@ -136,6 +89,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: RichTextEditor(
                   key: _editorKey,
                   onContentChanged: (content) {
+                    // log('[+]Content changed: $content');
                     setState(() {
                       _content = content;
                     });
@@ -147,57 +101,5 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
     );
-  }
-
-  Widget _buildToolbarButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Material(
-      color: const Color(0xFFF1F5F9),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: const Color(0xFF475569)),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF475569),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _getContent() async {
-    final content = await _editorKey.currentState?.getContent();
-    if (content != null) {
-      Clipboard.setData(ClipboardData(text: content));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Content copied to clipboard'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
-  void _clearContent() {
-    _editorKey.currentState?.clearContent();
   }
 }
