@@ -26,6 +26,7 @@ class RichTextEditorState extends State<RichTextEditor> {
   InAppWebViewController? _webViewController;
   bool _isLoading = true;
   String _errorMessage = '';
+  bool _webViewEnvironmentReady = false;
 
   void initializeWindowsWebViewEnvironment() async {
     CustomLogger.instance.info('Initializing Windows WebView Environment...');
@@ -45,13 +46,16 @@ class RichTextEditorState extends State<RichTextEditor> {
         );
 
         CustomLogger.instance.info('WebView Environment created successfully');
+
+        // Update state to indicate WebView environment is ready
+        if (mounted) {
+          setState(() {
+            _webViewEnvironmentReady = true;
+          });
+        }
       } catch (e) {
         CustomLogger.instance.error('Failed to initialize WebView Environment: $e');
       }
-
-      /* this.setState(() {
-        isLoading = false;
-      }); */
     }
   }
 
@@ -64,94 +68,97 @@ class RichTextEditorState extends State<RichTextEditor> {
 
   @override
   Widget build(BuildContext context) {
+    CustomLogger.instance.debug('Building RichTextEditor widget - WebView ready: $_webViewEnvironmentReady');
+
     return Stack(
       children: [
-        InAppWebView(
-          initialFile: "assets/summernote.html",
-          webViewEnvironment: Platform.isWindows ? webViewEnvironment : null,
-          initialSettings: InAppWebViewSettings(
-            allowUniversalAccessFromFileURLs: true,
-            allowFileAccessFromFileURLs: true,
-            allowFileAccess: true,
-            transparentBackground: true,
-            disableContextMenu: false,
-            supportZoom: false,
-            allowsInlineMediaPlayback: true,
-            mediaPlaybackRequiresUserGesture: false,
-            clearCache: false,
-            javaScriptEnabled: true,
-            domStorageEnabled: true,
-            allowsLinkPreview: false,
-            iframeAllow: "camera; microphone",
-            iframeAllowFullscreen: true,
-          ),
-          onWebViewCreated: (controller) {
-            _webViewController = controller;
-            CustomLogger.instance.webViewLog("WebView created successfully");
+        if (!Platform.isWindows || _webViewEnvironmentReady)
+          InAppWebView(
+            initialFile: "assets/summernote.html",
+            webViewEnvironment: Platform.isWindows ? webViewEnvironment : null,
+            initialSettings: InAppWebViewSettings(
+              allowUniversalAccessFromFileURLs: true,
+              allowFileAccessFromFileURLs: true,
+              allowFileAccess: true,
+              transparentBackground: true,
+              disableContextMenu: false,
+              supportZoom: false,
+              allowsInlineMediaPlayback: true,
+              mediaPlaybackRequiresUserGesture: false,
+              clearCache: false,
+              javaScriptEnabled: true,
+              domStorageEnabled: true,
+              allowsLinkPreview: false,
+              iframeAllow: "camera; microphone",
+              iframeAllowFullscreen: true,
+            ),
+            onWebViewCreated: (controller) {
+              _webViewController = controller;
+              CustomLogger.instance.webViewLog("WebView created successfully");
 
-            // Add JavaScript handlers
-            controller.addJavaScriptHandler(
-              handlerName: 'contentChanged',
-              callback: (args) {
-                CustomLogger.instance.jsLog("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, args[0].toString().length > 100 ? 100 : args[0].toString().length) : 'empty'}${args.isNotEmpty && args[0].toString().length > 100 ? '...' : ''}");
-                if (args.isNotEmpty) {
-                  widget.onContentChanged?.call(args[0].toString());
-                }
-              },
-            );
+              // Add JavaScript handlers
+              controller.addJavaScriptHandler(
+                handlerName: 'contentChanged',
+                callback: (args) {
+                  CustomLogger.instance.jsLog("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, args[0].toString().length > 100 ? 100 : args[0].toString().length) : 'empty'}${args.isNotEmpty && args[0].toString().length > 100 ? '...' : ''}");
+                  if (args.isNotEmpty) {
+                    widget.onContentChanged?.call(args[0].toString());
+                  }
+                },
+              );
 
-            controller.addJavaScriptHandler(
-              handlerName: 'editorReady',
-              callback: (args) {
-                CustomLogger.instance.webViewLog("Editor ready callback received");
-                if (mounted) {
+              controller.addJavaScriptHandler(
+                handlerName: 'editorReady',
+                callback: (args) {
+                  CustomLogger.instance.webViewLog("Editor ready callback received");
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                      _errorMessage = '';
+                    });
+                    CustomLogger.instance.info("Editor loading state set to false");
+
+                    // Set initial content if provided
+                    if (widget.initialContent != null) {
+                      CustomLogger.instance.info("Setting initial content: ${widget.initialContent!.substring(0, widget.initialContent!.length > 50 ? 50 : widget.initialContent!.length)}${widget.initialContent!.length > 50 ? '...' : ''}");
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        setContent(widget.initialContent!);
+                      });
+                    }
+                  }
+                },
+              );
+            },
+            onLoadStart: (controller, url) {
+              CustomLogger.instance.webViewLog("Load started: $url");
+            },
+            onLoadStop: (controller, url) async {
+              CustomLogger.instance.webViewLog("Load stopped: $url");
+              // Add a timeout fallback in case the editor doesn't initialize
+              Future.delayed(const Duration(seconds: 10), () {
+                if (mounted && _isLoading) {
+                  CustomLogger.instance.warning("Timeout reached, forcing editor ready");
                   setState(() {
                     _isLoading = false;
-                    _errorMessage = '';
+                    _errorMessage = 'Editor took longer than expected to load, but may still be functional.';
                   });
-                  CustomLogger.instance.info("Editor loading state set to false");
-
-                  // Set initial content if provided
-                  if (widget.initialContent != null) {
-                    CustomLogger.instance.info("Setting initial content: ${widget.initialContent!.substring(0, widget.initialContent!.length > 50 ? 50 : widget.initialContent!.length)}${widget.initialContent!.length > 50 ? '...' : ''}");
-                    Future.delayed(const Duration(milliseconds: 500), () {
-                      setContent(widget.initialContent!);
-                    });
-                  }
                 }
-              },
-            );
-          },
-          onLoadStart: (controller, url) {
-            CustomLogger.instance.webViewLog("Load started: $url");
-          },
-          onLoadStop: (controller, url) async {
-            CustomLogger.instance.webViewLog("Load stopped: $url");
-            // Add a timeout fallback in case the editor doesn't initialize
-            Future.delayed(const Duration(seconds: 10), () {
-              if (mounted && _isLoading) {
-                CustomLogger.instance.warning("Timeout reached, forcing editor ready");
+              });
+            },
+            onLoadError: (controller, url, code, message) {
+              CustomLogger.instance.error("Load error - URL: $url, Code: $code, Message: $message");
+              if (mounted) {
                 setState(() {
                   _isLoading = false;
-                  _errorMessage = 'Editor took longer than expected to load, but may still be functional.';
+                  _errorMessage = 'Failed to load editor: $message';
                 });
               }
-            });
-          },
-          onLoadError: (controller, url, code, message) {
-            CustomLogger.instance.error("Load error - URL: $url, Code: $code, Message: $message");
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-                _errorMessage = 'Failed to load editor: $message';
-              });
-            }
-          },
-          onConsoleMessage: (controller, consoleMessage) {
-            CustomLogger.instance.jsLog("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
-          },
-        ),
-        if (_isLoading)
+            },
+            onConsoleMessage: (controller, consoleMessage) {
+              CustomLogger.instance.jsLog("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
+            },
+          ),
+        if (_isLoading || (Platform.isWindows && !_webViewEnvironmentReady))
           Container(
             color: Colors.white,
             child: Center(
@@ -162,9 +169,9 @@ class RichTextEditorState extends State<RichTextEditor> {
                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Loading editor...',
-                    style: TextStyle(
+                  Text(
+                    Platform.isWindows && !_webViewEnvironmentReady ? 'Initializing WebView environment...' : 'Loading editor...',
+                    style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: 14,
                     ),
