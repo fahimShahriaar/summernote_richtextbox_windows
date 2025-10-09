@@ -23,3 +23,16 @@ flutter:
   uses-material-design: true
   assets:
     - assets/summernote.html
+    - assets/css/bootstrap.min.css
+    - assets/css/bootstrap-icons.min.css
+    - assets/css/summernote-bs5.min.css
+    - assets/fonts/bootstrap-icons.woff
+    - assets/fonts/bootstrap-icons.woff2
+    - assets/fonts/summernote.eot
+    - assets/fonts/summernote.ttf
+    - assets/js/bootstrap.bundle.min.js
+    - assets/js/jquery.min.js
+    - assets/js/summernote-bs5.min.js
+    - assets/fonts/
+    - assets/css/
+    - assets/js/
