@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'dart:developer';
 
 import 'rich_text_editor.dart';
+import 'logger.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize the logger
+  await CustomLogger.instance.initialize();
+  CustomLogger.instance.info('Application starting...');
+
   runApp(const MyApp());
 }
 
@@ -43,6 +49,12 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final GlobalKey<RichTextEditorState> _editorKey = GlobalKey();
   String _content = '';
+
+  @override
+  void initState() {
+    super.initState();
+    CustomLogger.instance.info('MyHomePage initialized');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: RichTextEditor(
                   key: _editorKey,
                   onContentChanged: (content) {
-                    // log('[+]Content changed: $content');
+                    CustomLogger.instance.debug('Content changed - Length: ${content.length}');
                     setState(() {
                       _content = content;
                     });
