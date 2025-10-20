@@ -1,7 +1,8 @@
-name: flutter_summernote_editor
-description: A Flutter Windows desktop app with Summernote rich text editor
+name: summernote_richtextbox
+description: A Flutter package that provides a rich text editor using Summernote with WebView integration for Windows desktop applications.
+version: 1.0.0
+homepage: https://github.com/fahimShahriaar/summernote_richtextbox_windows
 publish_to: "none"
-version: 1.0.0+1
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -12,7 +13,6 @@ dependencies:
     sdk: flutter
   flutter_inappwebview: ^6.0.0
   path_provider: ^2.1.5
-  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:
