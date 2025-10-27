@@ -7,10 +7,6 @@ import 'logger.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize the logger
-  await CustomLogger.instance.initialize();
-  CustomLogger.instance.info('Application starting...');
-
   runApp(const MyApp());
 }
 
@@ -53,7 +49,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    CustomLogger.instance.info('MyHomePage initialized');
   }
 
   @override
@@ -101,7 +96,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: RichTextEditor(
                   key: _editorKey,
                   onContentChanged: (content) {
-                    CustomLogger.instance.debug('Content changed - Length: ${content.length}');
                     setState(() {
                       _content = content;
                     });

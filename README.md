@@ -1,16 +1,17 @@
-# Summernote Rich Text Box
+# Summernote Rich Text Editor for Flutter
 
-A Flutter package that provides a rich text editor using Summernote with WebView integration for Windows desktop applications.
+A Flutter package that provides a rich text editor widget using Summernote.js. This package is specifically designed for Windows desktop applications and uses WebView to render the Summernote editor.
 
 ## Features
 
-- 🖋️ **Rich Text Editing**: Full WYSIWYG editor powered by Summernote.js
-- 🪟 **Windows Optimized**: Specifically designed for Windows desktop applications
-- 🔧 **WebView Integration**: Uses flutter_inappwebview for seamless HTML rendering
-- 📝 **Content Management**: Easy methods to get, set, and clear content
-- 🎯 **Command Execution**: Support for Summernote commands (bold, italic, etc.)
-- 📊 **Comprehensive Logging**: Built-in logging system for debugging
-- 🚀 **Production Ready**: Handles both debug and release/Inno Setup builds
+- 🎨 Rich text editing with Summernote.js
+- 📱 Full formatting toolbar (bold, italic, underline, colors, etc.)
+- �️ Image insertion support
+- � Copy/paste functionality
+- 🔗 Link insertion and editing
+- 📝 HTML content support
+- 💻 Windows desktop optimized
+- 📊 Logging system for debugging
 
 ## Installation
 
@@ -18,71 +19,163 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  summernote_richtextbox:
-    path: ../summernote_richtextbox # Adjust path as needed
+  summernote_richtextbox: ^1.0.0
+```
+
+Then run:
+
+```bash
+flutter pub get
 ```
 
 ## Usage
 
-### Basic Implementation
+### Basic Usage
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:summernote_richtextbox/summernote_richtextbox.dart';
 
-class MyEditor extends StatefulWidget {
+class MyHomePage extends StatefulWidget {
   @override
-  State<MyEditor> createState() => _MyEditorState();
+  State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyEditorState extends State<MyEditor> {
+class _MyHomePageState extends State<MyHomePage> {
   final GlobalKey<SummernoteEditorState> _editorKey = GlobalKey();
-  String _content = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Rich Text Editor')),
       body: SummernoteEditor(
         key: _editorKey,
-        initialContent: '<p>Welcome to the editor!</p>',
         onContentChanged: (content) {
-          setState(() {
-            _content = content;
-          });
+          print('Content changed: $content');
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final content = await _editorKey.currentState?.getContent();
-          print('Current content: $content');
+        onFocus: (content) {
+          print('Editor gained focus with content: $content');
         },
-        child: Icon(Icons.save),
+        onBlur: (content) {
+          print('Editor lost focus with content: $content');
+        },
+        initialContent: '<p>Welcome to Summernote!</p>',
       ),
     );
   }
 }
 ```
 
-### Available Methods
+### Getting and Setting Content
 
 ```dart
-// Get current HTML content
-String? content = await _editorKey.currentState?.getContent();
+// Get current content
+final controller = _editorKey.currentState?.getController();
+final content = await controller?.getContent();
 
-// Set HTML content
-await _editorKey.currentState?.setContent('<p>New content</p>');
+// Set content
+controller?.setContent('<p>New content here</p>');
 
-// Clear all content
-await _editorKey.currentState?.clearContent();
+// Clear content
+controller?.clearContent();
+```
+
+### Advanced Operations
+
+```dart
+// Insert text at cursor position
+controller?.insertText('Hello World!');
+
+// Insert HTML at cursor position
+controller?.insertHtml('<strong>Bold text</strong>');
 
 // Execute Summernote commands
-await _editorKey.currentState?.execCommand('bold');
-await _editorKey.currentState?.execCommand('italic');
+controller?.execCommand('bold');        // Toggle bold
+controller?.execCommand('italic');      // Toggle italic
+controller?.execCommand('underline');   // Toggle underline
 
-// Insert plain text
-await _editorKey.currentState?.insertText('Hello World');
+// Focus control
+controller?.focus();  // Focus the editor
+controller?.blur();   // Remove focus
 ```
+
+### Using Focus and Blur Callbacks
+
+The `onFocus` and `onBlur` callbacks are triggered when the editor gains or loses focus and provide the current content:
+
+```dart
+SummernoteEditor(
+  key: _editorKey,
+  onContentChanged: (content) {
+    print('Content changed: ${content.length} characters');
+  },
+  onFocus: (content) {
+    // This is called when the user clicks into the editor
+    print('Editor gained focus with content: ${content.length} characters');
+    // You can show editing hints, analytics, etc.
+    showEditingHints();
+  },
+  onBlur: (content) {
+    // This is called when the user clicks outside the editor
+    print('Editor lost focus with content: ${content.length} characters');
+    // You can save the content, show notifications, etc.
+    saveContent(content);
+  },
+)
+```
+
+### Using with Controller Parameter (Alternative)
+
+```dart
+class MyWidget extends StatefulWidget {
+  @override
+  State<MyWidget> createState() => _MyWidgetState();
+}
+
+class _MyWidgetState extends State<MyWidget> {
+  final SummernoteController _controller = SummernoteController();
+
+  @override
+  Widget build(BuildContext context) {
+    return SummernoteEditor(
+      controller: _controller,
+      onContentChanged: (content) {
+        print('Content changed: $content');
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+```
+
+## API Reference
+
+### SummernoteController Methods
+
+| Method                        | Description                  | Returns           |
+| ----------------------------- | ---------------------------- | ----------------- |
+| `getContent()`                | Gets current HTML content    | `Future<String?>` |
+| `setContent(String content)`  | Sets HTML content            | `Future<void>`    |
+| `clearContent()`              | Clears all content           | `Future<void>`    |
+| `insertText(String text)`     | Inserts plain text at cursor | `Future<void>`    |
+| `insertHtml(String html)`     | Inserts HTML at cursor       | `Future<void>`    |
+| `execCommand(String command)` | Executes Summernote command  | `Future<void>`    |
+| `focus()`                     | Focuses the editor           | `Future<void>`    |
+| `blur()`                      | Unfocuses the editor         | `Future<void>`    |
+
+### SummernoteEditor Properties
+
+| Property           | Type                    | Description                                                |
+| ------------------ | ----------------------- | ---------------------------------------------------------- |
+| `controller`       | `SummernoteController?` | Optional controller for editor operations                  |
+| `onContentChanged` | `Function(String)?`     | Callback when content changes                              |
+| `onFocus`          | `Function(String)?`     | Callback when editor gains focus, receives current content |
+| `onBlur`           | `Function(String)?`     | Callback when editor loses focus, receives current content |
+| `initialContent`   | `String?`               | Initial HTML content                                       |
 
 ## Requirements
 
@@ -90,170 +183,22 @@ await _editorKey.currentState?.insertText('Hello World');
 - Windows desktop target
 - WebView2 Runtime (usually pre-installed on Windows 11)
 
-## Assets
-
-The package includes all necessary assets:
-
-- Summernote.js library
-- Bootstrap CSS framework
-- Bootstrap Icons
-- jQuery library
-
 ## Logging
 
-The package includes a comprehensive logging system that writes to `C:\summernotelogs\`. To enable logging:
+The package includes a comprehensive logging system that writes to `C:\summernotelogs\`. Initialize logging in your main function:
 
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize logging
   await CustomLogger.instance.initialize();
-
   runApp(MyApp());
 }
 ```
 
-## Troubleshooting
-
-### "Loading editor..." Issue
-
-If you see infinite loading in production builds:
-
-1. Ensure WebView2 Runtime is installed
-2. Check logs in `C:\summernotelogs\`
-3. Verify asset paths are correct
-
-### WebView2 Runtime
-
-Download and install from: https://developer.microsoft.com/en-us/microsoft-edge/webview2/
-
 ## Example
 
-See the `/example` folder for a complete implementation example.
+See the `/example` folder for complete implementation examples.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Features
-
-- **Rich Text Editing**: Full-featured WYSIWYG editor with Summernote
-- **Native Integration**: Seamless communication between Flutter and JavaScript
-- **Windows Desktop**: Optimized for Windows desktop with native window controls
-- **Minimal UI**: Clean, modern interface focused on content creation
-- **Toolbar Actions**: Flutter-based toolbar with common formatting options
-- **Content Management**: Get, set, and clear content programmatically
-
-## Getting Started
-
-### Prerequisites
-
-- Flutter SDK (latest stable version)
-- Windows 10/11
-- Visual Studio 2019 or later with C++ desktop development tools
-
-### Installation
-
-1. Clone or download this project
-2. Run `flutter pub get` to install dependencies
-3. Enable Windows desktop support:
-   ```bash
-   flutter config --enable-windows-desktop
-   ```
-4. Run the application:
-   ```bash
-   flutter run -d windows
-   ```
-
-## Usage
-
-### Basic Operations
-
-- **Text Formatting**: Use the toolbar buttons for bold, italic, underline
-- **Lists**: Create bulleted and numbered lists
-- **Content Export**: Click the copy button to copy HTML content to clipboard
-- **Clear Content**: Use the clear button to reset the editor
-
-### API Integration
-
-The `RichTextEditor` widget provides these methods:
-
-```dart
-// Get current content
-String? content = await editorKey.currentState?.getContent();
-
-// Set content
-await editorKey.currentState?.setContent('<p>Hello World</p>');
-
-// Clear content
-await editorKey.currentState?.clearContent();
-
-// Execute formatting commands
-await editorKey.currentState?.execCommand('bold');
-```
-
-## Architecture
-
-- **main.dart**: Application entry point and main UI
-- **rich_text_editor.dart**: WebView wrapper with Flutter-JavaScript bridge
-- **assets/summernote.html**: Embedded HTML with Summernote configuration
-- **Communication**: JavaScript handlers for bidirectional data flow
-
-## Customization
-
-### Modifying Summernote Toolbar
-
-Edit the `toolbar` configuration in `assets/summernote.html`:
-
-```javascript
-toolbar: [
-  ["style", ["style"]],
-  ["font", ["bold", "italic", "underline"]],
-  ["fontsize", ["fontsize"]],
-  ["para", ["ul", "ol"]],
-  // Add or remove toolbar groups
-];
-```
-
-### Styling
-
-Customize the editor appearance by modifying the CSS in `summernote.html` or updating the Flutter theme in `main.dart`.
-
-## Dependencies
-
-- `flutter_inappwebview`: ^6.0.0 - WebView implementation
-- CDN Resources:
-  - jQuery 3.6.0
-  - Bootstrap 5.3.0
-  - Summernote 0.8.18
-
-## Building for Release
-
-```bash
-flutter build windows --release
-```
-
-The built application will be available in `build/windows/runner/Release/`.
-
-## Troubleshooting
-
-### WebView not loading
-
-- Ensure internet connectivity for CDN resources
-- Check Windows Defender/antivirus settings
-- Verify flutter_inappwebview installation
-
-### JavaScript errors
-
-- Check browser console in debug mode
-- Verify HTML file is properly included in assets
-- Ensure pubspec.yaml includes asset declarations
-
-## License
-
-This project is open source and available under the MIT License.
+This project is licensed under the MIT License.

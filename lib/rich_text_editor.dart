@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -29,23 +30,23 @@ class RichTextEditorState extends State<RichTextEditor> {
   bool _webViewEnvironmentReady = false;
 
   void initializeWindowsWebViewEnvironment() async {
-    CustomLogger.instance.info('Initializing Windows WebView Environment...');
+    log('Initializing Windows WebView Environment...');
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
       try {
         final availableVersion = await WebViewEnvironment.getAvailableVersion();
-        CustomLogger.instance.info('WebView2 available version: $availableVersion');
+        log('WebView2 available version: $availableVersion');
 
         assert(availableVersion != null, 'Failed to find an installed WebView2 Runtime or non-stable Microsoft Edge installation.');
 
         final appDataDir = await getApplicationSupportDirectory();
-        CustomLogger.instance.info('App data directory: ${appDataDir.path}');
+        log('App data directory: ${appDataDir.path}');
 
         webViewEnvironment = await WebViewEnvironment.create(
           settings: WebViewEnvironmentSettings(userDataFolder: '${appDataDir.path}\\EBWebView'),
         );
 
-        CustomLogger.instance.info('WebView Environment created successfully');
+        log('WebView Environment created successfully');
 
         // Update state to indicate WebView environment is ready
         if (mounted) {
@@ -54,7 +55,7 @@ class RichTextEditorState extends State<RichTextEditor> {
           });
         }
       } catch (e) {
-        CustomLogger.instance.error('Failed to initialize WebView Environment: $e');
+        log('Failed to initialize WebView Environment: $e');
       }
     }
   }
@@ -62,13 +63,13 @@ class RichTextEditorState extends State<RichTextEditor> {
   @override
   void initState() {
     super.initState();
-    CustomLogger.instance.info('RichTextEditor initState called');
+    log('RichTextEditor initState called');
     initializeWindowsWebViewEnvironment();
   }
 
   @override
   Widget build(BuildContext context) {
-    CustomLogger.instance.debug('Building RichTextEditor widget - WebView ready: $_webViewEnvironmentReady');
+    log('Building RichTextEditor widget - WebView ready: $_webViewEnvironmentReady');
 
     return Stack(
       children: [
@@ -94,13 +95,13 @@ class RichTextEditorState extends State<RichTextEditor> {
             ),
             onWebViewCreated: (controller) {
               _webViewController = controller;
-              CustomLogger.instance.webViewLog("WebView created successfully");
+              log("WebView created successfully");
 
               // Add JavaScript handlers
               controller.addJavaScriptHandler(
                 handlerName: 'contentChanged',
                 callback: (args) {
-                  CustomLogger.instance.jsLog("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, args[0].toString().length > 100 ? 100 : args[0].toString().length) : 'empty'}${args.isNotEmpty && args[0].toString().length > 100 ? '...' : ''}");
+                  log("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, args[0].toString().length > 100 ? 100 : args[0].toString().length) : 'empty'}${args.isNotEmpty && args[0].toString().length > 100 ? '...' : ''}");
                   if (args.isNotEmpty) {
                     widget.onContentChanged?.call(args[0].toString());
                   }
@@ -110,17 +111,17 @@ class RichTextEditorState extends State<RichTextEditor> {
               controller.addJavaScriptHandler(
                 handlerName: 'editorReady',
                 callback: (args) {
-                  CustomLogger.instance.webViewLog("Editor ready callback received");
+                  log("Editor ready callback received");
                   if (mounted) {
                     setState(() {
                       _isLoading = false;
                       _errorMessage = '';
                     });
-                    CustomLogger.instance.info("Editor loading state set to false");
+                    log("Editor loading state set to false");
 
                     // Set initial content if provided
                     if (widget.initialContent != null) {
-                      CustomLogger.instance.info("Setting initial content: ${widget.initialContent!.substring(0, widget.initialContent!.length > 50 ? 50 : widget.initialContent!.length)}${widget.initialContent!.length > 50 ? '...' : ''}");
+                      log("Setting initial content: ${widget.initialContent!.substring(0, widget.initialContent!.length > 50 ? 50 : widget.initialContent!.length)}${widget.initialContent!.length > 50 ? '...' : ''}");
                       Future.delayed(const Duration(milliseconds: 500), () {
                         setContent(widget.initialContent!);
                       });
@@ -130,14 +131,14 @@ class RichTextEditorState extends State<RichTextEditor> {
               );
             },
             onLoadStart: (controller, url) {
-              CustomLogger.instance.webViewLog("Load started: $url");
+              log("Load started: $url");
             },
             onLoadStop: (controller, url) async {
-              CustomLogger.instance.webViewLog("Load stopped: $url");
+              log("Load stopped: $url");
               // Add a timeout fallback in case the editor doesn't initialize
               Future.delayed(const Duration(seconds: 10), () {
                 if (mounted && _isLoading) {
-                  CustomLogger.instance.warning("Timeout reached, forcing editor ready");
+                  log("Timeout reached, forcing editor ready");
                   setState(() {
                     _isLoading = false;
                     _errorMessage = 'Editor took longer than expected to load, but may still be functional.';
@@ -146,7 +147,7 @@ class RichTextEditorState extends State<RichTextEditor> {
               });
             },
             onLoadError: (controller, url, code, message) {
-              CustomLogger.instance.error("Load error - URL: $url, Code: $code, Message: $message");
+              log("Load error - URL: $url, Code: $code, Message: $message");
               if (mounted) {
                 setState(() {
                   _isLoading = false;
@@ -155,7 +156,7 @@ class RichTextEditorState extends State<RichTextEditor> {
               }
             },
             onConsoleMessage: (controller, consoleMessage) {
-              CustomLogger.instance.jsLog("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
+              log("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
             },
           ),
         if (_isLoading || (Platform.isWindows && !_webViewEnvironmentReady))
@@ -197,100 +198,100 @@ class RichTextEditorState extends State<RichTextEditor> {
 
   Future<String?> getContent() async {
     if (_webViewController == null) {
-      CustomLogger.instance.warning("getContent called but webViewController is null");
+      log("getContent called but webViewController is null");
       return null;
     }
 
     try {
-      CustomLogger.instance.debug("Getting content from editor");
+      log("Getting content from editor");
       final result = await _webViewController!.evaluateJavascript(
         source: "window.getContent();",
       );
-      CustomLogger.instance.debug("Content retrieved successfully");
+      log("Content retrieved successfully");
       return result?.toString();
     } catch (e) {
-      CustomLogger.instance.error("Error getting content: $e");
+      log("Error getting content: $e");
       return null;
     }
   }
 
   Future<void> setContent(String content) async {
     if (_webViewController == null) {
-      CustomLogger.instance.warning("setContent called but webViewController is null");
+      log("setContent called but webViewController is null");
       return;
     }
 
     try {
-      CustomLogger.instance.debug("Setting content: ${content.substring(0, content.length > 100 ? 100 : content.length)}${content.length > 100 ? '...' : ''}");
+      log("Setting content: ${content.substring(0, content.length > 100 ? 100 : content.length)}${content.length > 100 ? '...' : ''}");
       // Escape the content properly for JavaScript
       final escapedContent = content.replaceAll('\\', '\\\\').replaceAll('`', '\\`').replaceAll('\$', '\\\$');
 
       await _webViewController!.evaluateJavascript(
         source: "window.setContent(`$escapedContent`);",
       );
-      CustomLogger.instance.debug("Content set successfully");
+      log("Content set successfully");
     } catch (e) {
-      CustomLogger.instance.error("Error setting content: $e");
+      log("Error setting content: $e");
     }
   }
 
   Future<void> clearContent() async {
     if (_webViewController == null) {
-      CustomLogger.instance.warning("clearContent called but webViewController is null");
+      log("clearContent called but webViewController is null");
       return;
     }
 
     try {
-      CustomLogger.instance.debug("Clearing editor content");
+      log("Clearing editor content");
       await _webViewController!.evaluateJavascript(
         source: "window.clearContent();",
       );
-      CustomLogger.instance.debug("Content cleared successfully");
+      log("Content cleared successfully");
     } catch (e) {
-      CustomLogger.instance.error("Error clearing content: $e");
+      log("Error clearing content: $e");
     }
   }
 
   Future<void> execCommand(String command) async {
     if (_webViewController == null) {
-      CustomLogger.instance.warning("execCommand called but webViewController is null");
+      log("execCommand called but webViewController is null");
       return;
     }
 
     try {
-      CustomLogger.instance.debug("Executing command: $command");
+      log("Executing command: $command");
       await _webViewController!.evaluateJavascript(
         source: "window.execCommand('$command');",
       );
-      CustomLogger.instance.debug("Command executed successfully: $command");
+      log("Command executed successfully: $command");
     } catch (e) {
-      CustomLogger.instance.error("Error executing command '$command': $e");
+      log("Error executing command '$command': $e");
     }
   }
 
   Future<void> insertText(String text) async {
     if (_webViewController == null) {
-      CustomLogger.instance.warning("insertText called but webViewController is null");
+      log("insertText called but webViewController is null");
       return;
     }
 
     try {
-      CustomLogger.instance.debug("Inserting text: ${text.substring(0, text.length > 50 ? 50 : text.length)}${text.length > 50 ? '...' : ''}");
+      log("Inserting text: ${text.substring(0, text.length > 50 ? 50 : text.length)}${text.length > 50 ? '...' : ''}");
       // Escape the text properly for JavaScript
       final escapedText = text.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n').replaceAll('\r', '\\r');
 
       await _webViewController!.evaluateJavascript(
         source: "window.insertText('$escapedText');",
       );
-      CustomLogger.instance.debug("Text inserted successfully");
+      log("Text inserted successfully");
     } catch (e) {
-      CustomLogger.instance.error("Error inserting text: $e");
+      log("Error inserting text: $e");
     }
   }
 
   @override
   void dispose() {
-    CustomLogger.instance.info("RichTextEditor disposed");
+    log("RichTextEditor disposed");
     super.dispose();
   }
 }

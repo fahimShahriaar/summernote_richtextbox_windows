@@ -13,9 +13,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Summernote Package Example',
+      title: 'Summernote Package Example (Alternative)',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.green,
       ),
       home: const MyHomePage(),
     );
@@ -30,16 +30,22 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // Use GlobalKey to access the SummernoteEditor
-  final GlobalKey<SummernoteEditorState> _editorKey = GlobalKey();
+  // Alternative approach: using controller as parameter
+  final SummernoteController _controller = SummernoteController();
   String _displayContent = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Summernote Package Example'),
-        backgroundColor: Colors.blue,
+        title: const Text('Alternative Controller Usage'),
+        backgroundColor: Colors.green,
       ),
       body: Column(
         children: [
@@ -47,10 +53,18 @@ class _MyHomePageState extends State<MyHomePage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            color: Colors.grey.shade100,
-            child: Text(
-              'Content: ${_displayContent.length} characters',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            color: Colors.green.shade50,
+            child: Column(
+              children: [
+                Text(
+                  'Editor Ready: ${_controller.isReady}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  'Content: ${_displayContent.length} characters',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           ),
           // Control buttons
@@ -62,8 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
               children: [
                 ElevatedButton(
                   onPressed: () async {
-                    final controller = _editorKey.currentState?.getController();
-                    final content = await controller?.getContent();
+                    final content = await _controller.getContent();
                     if (content != null) {
                       setState(() {
                         _displayContent = content;
@@ -77,61 +90,43 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    final controller = _editorKey.currentState?.getController();
-                    controller?.setContent('<p><strong>Hello from package!</strong></p><p>This content was set programmatically.</p>');
+                    _controller.setContent('<p><strong>Hello from controller parameter!</strong></p>');
                   },
                   child: const Text('Set Content'),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    final controller = _editorKey.currentState?.getController();
-                    controller?.clearContent();
+                    _controller.clearContent();
                   },
                   child: const Text('Clear'),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    final controller = _editorKey.currentState?.getController();
-                    controller?.insertText('Inserted text! ');
+                    _controller.insertText('Text via controller! ');
                   },
                   child: const Text('Insert Text'),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    final controller = _editorKey.currentState?.getController();
-                    controller?.insertHtml('<span style="color: red;">Red HTML text</span> ');
+                    _controller.insertHtml('<em>HTML via controller!</em> ');
                   },
                   child: const Text('Insert HTML'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final controller = _editorKey.currentState?.getController();
-                    controller?.execCommand('bold');
-                  },
-                  child: const Text('Toggle Bold'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final controller = _editorKey.currentState?.getController();
-                    controller?.focus();
-                  },
-                  child: const Text('Focus'),
                 ),
               ],
             ),
           ),
           const Divider(),
-          // The editor
+          // The editor with controller parameter
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: Colors.green.shade300),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: SummernoteEditor(
-                key: _editorKey,
-                initialContent: '<p>Welcome to <strong>Summernote</strong> package!</p><p>Start typing here...</p>',
+                controller: _controller,
+                initialContent: '<p>This example uses controller as a parameter!</p>',
                 onContentChanged: (content) {
                   setState(() {
                     _displayContent = content;
@@ -145,9 +140,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   print('Editor focused with content: ${content.length} characters');
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Editor gained focus - Content: ${content.length} characters'),
+                      content: Text('Editor focused - Ready to edit: ${content.length} chars'),
                       duration: Duration(seconds: 1),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Colors.blue,
                     ),
                   );
                 },
@@ -158,9 +153,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   print('Editor blurred with content: ${content.length} characters');
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Editor lost focus - Content: ${content.length} characters'),
+                      content: Text('Editor lost focus - Content saved: ${content.length} chars'),
                       duration: Duration(seconds: 2),
-                      backgroundColor: Colors.orange,
+                      backgroundColor: Colors.green,
                     ),
                   );
                 },

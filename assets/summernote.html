@@ -241,9 +241,39 @@
               },
               onFocus: function () {
                 console.log("Editor focused");
+                try {
+                  // Get current content when editor gains focus
+                  const content = $("#summernote").summernote("code");
+                  if (
+                    window.flutter_inappwebview &&
+                    window.flutter_inappwebview.callHandler
+                  ) {
+                    window.flutter_inappwebview.callHandler(
+                      "editorFocused",
+                      content
+                    );
+                  }
+                } catch (error) {
+                  console.error("Error in onFocus callback:", error);
+                }
               },
               onBlur: function () {
                 console.log("Editor blurred");
+                try {
+                  // Get current content when editor loses focus
+                  const content = $("#summernote").summernote("code");
+                  if (
+                    window.flutter_inappwebview &&
+                    window.flutter_inappwebview.callHandler
+                  ) {
+                    window.flutter_inappwebview.callHandler(
+                      "editorBlurred",
+                      content
+                    );
+                  }
+                } catch (error) {
+                  console.error("Error in onBlur callback:", error);
+                }
               },
             },
           });
@@ -346,6 +376,26 @@
             }
           } catch (error) {
             console.error("Error inserting text:", error);
+          }
+        };
+
+        window.focusEditor = function () {
+          try {
+            if (checkScriptsLoaded() && $("#summernote").length) {
+              $("#summernote").summernote("focus");
+            }
+          } catch (error) {
+            console.error("Error focusing editor:", error);
+          }
+        };
+
+        window.blurEditor = function () {
+          try {
+            if (checkScriptsLoaded() && $("#summernote").length) {
+              $("#summernote").summernote("blur");
+            }
+          } catch (error) {
+            console.error("Error blurring editor:", error);
           }
         };
       });

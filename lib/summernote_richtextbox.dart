@@ -5,4 +5,5 @@
 library summernote_richtextbox;
 
 export 'src/summernote_editor.dart';
+export 'src/summernote_controller.dart';
 export 'src/logger.dart';

@@ -1,10 +1,11 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path_provider/path_provider.dart';
-import 'logger.dart';
+import 'summernote_controller.dart';
 
 WebViewEnvironment? webViewEnvironment;
 
@@ -13,19 +14,36 @@ WebViewEnvironment? webViewEnvironment;
 /// This widget provides a WYSIWYG editor interface powered by Summernote.js
 /// and is designed to work specifically with Windows desktop applications.
 class SummernoteEditor extends StatefulWidget {
+  /// Controller for managing the editor's content and operations.
+  final SummernoteController? controller;
+
   /// Callback function that is called when the content of the editor changes.
   final Function(String)? onContentChanged;
+
+  /// Callback function that is called when the editor gains focus (focus event).
+  /// The callback receives the current content as a parameter.
+  final Function(String)? onFocus;
+
+  /// Callback function that is called when the editor loses focus (blur event).
+  /// The callback receives the current content as a parameter.
+  final Function(String)? onBlur;
 
   /// Initial content to display in the editor when it loads.
   final String? initialContent;
 
   /// Creates a new SummernoteEditor widget.
   ///
+  /// [controller] is optional. If not provided, the widget will create its own controller.
   /// [onContentChanged] is called whenever the user modifies the editor content.
+  /// [onFocus] is called when the editor gains focus, providing the current content.
+  /// [onBlur] is called when the editor loses focus, providing the current content.
   /// [initialContent] can be used to pre-populate the editor with HTML content.
   const SummernoteEditor({
     super.key,
+    this.controller,
     this.onContentChanged,
+    this.onFocus,
+    this.onBlur,
     this.initialContent,
   });
 
@@ -34,32 +52,30 @@ class SummernoteEditor extends StatefulWidget {
 }
 
 /// The state class for [SummernoteEditor].
-///
-/// Provides public methods to interact with the editor programmatically.
 class SummernoteEditorState extends State<SummernoteEditor> {
-  InAppWebViewController? _webViewController;
   bool _isLoading = true;
   String _errorMessage = '';
   bool _webViewEnvironmentReady = false;
+  late SummernoteController _controller;
 
   void initializeWindowsWebViewEnvironment() async {
-    CustomLogger.instance.info('Initializing Windows WebView Environment...');
+    log('Initializing Windows WebView Environment...');
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
       try {
         final availableVersion = await WebViewEnvironment.getAvailableVersion();
-        CustomLogger.instance.info('WebView2 available version: $availableVersion');
+        log('WebView2 available version: $availableVersion');
 
         assert(availableVersion != null, 'Failed to find an installed WebView2 Runtime or non-stable Microsoft Edge installation.');
 
         final appDataDir = await getApplicationSupportDirectory();
-        CustomLogger.instance.info('App data directory: ${appDataDir.path}');
+        log('App data directory: ${appDataDir.path}');
 
         webViewEnvironment = await WebViewEnvironment.create(
           settings: WebViewEnvironmentSettings(userDataFolder: '${appDataDir.path}\\EBWebView'),
         );
 
-        CustomLogger.instance.info('WebView Environment created successfully');
+        log('WebView Environment created successfully');
 
         // Update state to indicate WebView environment is ready
         if (mounted) {
@@ -68,7 +84,7 @@ class SummernoteEditorState extends State<SummernoteEditor> {
           });
         }
       } catch (e) {
-        CustomLogger.instance.error('Failed to initialize WebView Environment: $e');
+        log('Failed to initialize WebView Environment: $e');
       }
     }
   }
@@ -76,13 +92,17 @@ class SummernoteEditorState extends State<SummernoteEditor> {
   @override
   void initState() {
     super.initState();
-    CustomLogger.instance.info('SummernoteEditor initState called');
+    log('SummernoteEditor initState called');
+
+    // Initialize controller
+    _controller = widget.controller ?? SummernoteController();
+
     initializeWindowsWebViewEnvironment();
   }
 
   @override
   Widget build(BuildContext context) {
-    CustomLogger.instance.debug('Building SummernoteEditor widget - WebView ready: $_webViewEnvironmentReady');
+    log('Inside Widget build (SummernoteEditor widget) - WebView ready: $_webViewEnvironmentReady');
 
     return Stack(
       children: [
@@ -107,16 +127,22 @@ class SummernoteEditorState extends State<SummernoteEditor> {
               iframeAllowFullscreen: true,
             ),
             onWebViewCreated: (controller) {
-              _webViewController = controller;
-              CustomLogger.instance.webViewLog("WebView created successfully");
+              _controller.attachWebViewController(controller);
+              log("WebView created successfully");
 
               // Add JavaScript handlers
               controller.addJavaScriptHandler(
                 handlerName: 'contentChanged',
                 callback: (args) {
-                  CustomLogger.instance.jsLog("Content changed: ${args.isNotEmpty ? args[0].toString().substring(0, args[0].toString().length > 100 ? 100 : args[0].toString().length) : 'empty'}${args.isNotEmpty && args[0].toString().length > 100 ? '...' : ''}");
                   if (args.isNotEmpty) {
-                    widget.onContentChanged?.call(args[0].toString());
+                    final content = args[0].toString();
+                    log("Content changed: ${content.substring(0, content.length > 100 ? 100 : content.length)}${content.length > 100 ? '...' : ''}");
+
+                    // Update controller
+                    _controller.updateContent(content);
+
+                    // Call widget callback
+                    widget.onContentChanged?.call(content);
                   }
                 },
               );
@@ -124,34 +150,67 @@ class SummernoteEditorState extends State<SummernoteEditor> {
               controller.addJavaScriptHandler(
                 handlerName: 'editorReady',
                 callback: (args) {
-                  CustomLogger.instance.webViewLog("Editor ready callback received");
+                  log("Editor ready callback received");
                   if (mounted) {
                     setState(() {
                       _isLoading = false;
                       _errorMessage = '';
                     });
-                    CustomLogger.instance.info("Editor loading state set to false");
+                    _controller.setReady(true);
+                    log("Editor loading state set to false");
 
                     // Set initial content if provided
                     if (widget.initialContent != null) {
-                      CustomLogger.instance.info("Setting initial content: ${widget.initialContent!.substring(0, widget.initialContent!.length > 50 ? 50 : widget.initialContent!.length)}${widget.initialContent!.length > 50 ? '...' : ''}");
+                      log("Setting initial content: ${widget.initialContent!.substring(0, widget.initialContent!.length > 50 ? 50 : widget.initialContent!.length)}${widget.initialContent!.length > 50 ? '...' : ''}");
                       Future.delayed(const Duration(milliseconds: 500), () {
-                        setContent(widget.initialContent!);
+                        _controller.setContent(widget.initialContent!);
                       });
                     }
                   }
                 },
               );
+
+              controller.addJavaScriptHandler(
+                handlerName: 'editorFocused',
+                callback: (args) {
+                  if (args.isNotEmpty) {
+                    final content = args[0].toString();
+                    log("Editor focused with content: ${content.substring(0, content.length > 100 ? 100 : content.length)}${content.length > 100 ? '...' : ''}");
+
+                    // Update controller
+                    _controller.updateContent(content);
+
+                    // Call widget focus callback if provided
+                    widget.onFocus?.call(content);
+                  }
+                },
+              );
+
+              controller.addJavaScriptHandler(
+                handlerName: 'editorBlurred',
+                callback: (args) {
+                  if (args.isNotEmpty) {
+                    final content = args[0].toString();
+                    log("Editor blurred with content: ${content.substring(0, content.length > 100 ? 100 : content.length)}${content.length > 100 ? '...' : ''}");
+
+                    // Update controller
+                    _controller.updateContent(content);
+
+                    // Call widget blur callback if provided
+                    widget.onBlur?.call(content);
+                  }
+                },
+              );
             },
             onLoadStart: (controller, url) {
-              CustomLogger.instance.webViewLog("Load started: $url");
+              log("Load started: $url");
             },
             onLoadStop: (controller, url) async {
-              CustomLogger.instance.webViewLog("Load stopped: $url");
+              log("Load stopped: $url");
               // Add a timeout fallback in case the editor doesn't initialize
               Future.delayed(const Duration(seconds: 10), () {
                 if (mounted && _isLoading) {
-                  CustomLogger.instance.warning("Timeout reached, forcing editor ready");
+                  log("Timeout reached, forcing editor ready");
                   setState(() {
                     _isLoading = false;
                     _errorMessage = 'Editor took longer than expected to load, but may still be functional.';
@@ -160,7 +219,7 @@ class SummernoteEditorState extends State<SummernoteEditor> {
               });
             },
             onLoadError: (controller, url, code, message) {
-              CustomLogger.instance.error("Load error - URL: $url, Code: $code, Message: $message");
+              log("Load error - URL: $url, Code: $code, Message: $message");
               if (mounted) {
                 setState(() {
                   _isLoading = false;
@@ -169,7 +228,7 @@ class SummernoteEditorState extends State<SummernoteEditor> {
               }
             },
             onConsoleMessage: (controller, consoleMessage) {
-              CustomLogger.instance.jsLog("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
+              log("Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}");
             },
           ),
         if (_isLoading || (Platform.isWindows && !_webViewEnvironmentReady))
@@ -209,115 +268,21 @@ class SummernoteEditorState extends State<SummernoteEditor> {
     );
   }
 
-  /// Gets the current HTML content from the editor.
+  /// Gets the controller for this editor.
   ///
-  /// Returns the HTML string content, or null if the editor is not ready.
-  Future<String?> getContent() async {
-    if (_webViewController == null) {
-      CustomLogger.instance.warning("getContent called but webViewController is null");
-      return null;
-    }
+  /// This provides access to all editor operations like getContent, setContent, etc.
+  SummernoteController getController() => _controller;
 
-    try {
-      CustomLogger.instance.debug("Getting content from editor");
-      final result = await _webViewController!.evaluateJavascript(
-        source: "window.getContent();",
-      );
-      CustomLogger.instance.debug("Content retrieved successfully");
-      return result?.toString();
-    } catch (e) {
-      CustomLogger.instance.error("Error getting content: $e");
-      return null;
-    }
-  }
-
-  /// Sets the HTML content of the editor.
+  /// Sets a new controller for this editor.
   ///
-  /// [content] should be a valid HTML string.
-  Future<void> setContent(String content) async {
-    if (_webViewController == null) {
-      CustomLogger.instance.warning("setContent called but webViewController is null");
-      return;
-    }
-
-    try {
-      CustomLogger.instance.debug("Setting content: ${content.substring(0, content.length > 100 ? 100 : content.length)}${content.length > 100 ? '...' : ''}");
-      // Escape the content properly for JavaScript
-      final escapedContent = content.replaceAll('\\', '\\\\').replaceAll('`', '\\`').replaceAll('\$', '\\\$');
-
-      await _webViewController!.evaluateJavascript(
-        source: "window.setContent(`$escapedContent`);",
-      );
-      CustomLogger.instance.debug("Content set successfully");
-    } catch (e) {
-      CustomLogger.instance.error("Error setting content: $e");
-    }
-  }
-
-  /// Clears all content from the editor.
-  Future<void> clearContent() async {
-    if (_webViewController == null) {
-      CustomLogger.instance.warning("clearContent called but webViewController is null");
-      return;
-    }
-
-    try {
-      CustomLogger.instance.debug("Clearing editor content");
-      await _webViewController!.evaluateJavascript(
-        source: "window.clearContent();",
-      );
-      CustomLogger.instance.debug("Content cleared successfully");
-    } catch (e) {
-      CustomLogger.instance.error("Error clearing content: $e");
-    }
-  }
-
-  /// Executes a Summernote command.
-  ///
-  /// [command] should be a valid Summernote command like 'bold', 'italic', etc.
-  Future<void> execCommand(String command) async {
-    if (_webViewController == null) {
-      CustomLogger.instance.warning("execCommand called but webViewController is null");
-      return;
-    }
-
-    try {
-      CustomLogger.instance.debug("Executing command: $command");
-      await _webViewController!.evaluateJavascript(
-        source: "window.execCommand('$command');",
-      );
-      CustomLogger.instance.debug("Command executed successfully: $command");
-    } catch (e) {
-      CustomLogger.instance.error("Error executing command '$command': $e");
-    }
-  }
-
-  /// Inserts text at the current cursor position in the editor.
-  ///
-  /// [text] is the plain text to insert.
-  Future<void> insertText(String text) async {
-    if (_webViewController == null) {
-      CustomLogger.instance.warning("insertText called but webViewController is null");
-      return;
-    }
-
-    try {
-      CustomLogger.instance.debug("Inserting text: ${text.substring(0, text.length > 50 ? 50 : text.length)}${text.length > 50 ? '...' : ''}");
-      // Escape the text properly for JavaScript
-      final escapedText = text.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n').replaceAll('\r', '\\r');
-
-      await _webViewController!.evaluateJavascript(
-        source: "window.insertText('$escapedText');",
-      );
-      CustomLogger.instance.debug("Text inserted successfully");
-    } catch (e) {
-      CustomLogger.instance.error("Error inserting text: $e");
-    }
+  /// This allows dynamic controller replacement if needed.
+  void setController(SummernoteController newController) {
+    _controller = newController;
   }
 
   @override
   void dispose() {
-    CustomLogger.instance.info("SummernoteEditor disposed");
+    log("SummernoteEditor disposed");
     super.dispose();
   }
 }
